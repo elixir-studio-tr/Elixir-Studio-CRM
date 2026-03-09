@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Elixir Studio</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Nunito:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0e0e;
+  --surface: #1a1818;
+  --surface2: #222020;
+  --surface3: #2a2828;
+  --border: #2e2c2c;
+  --text: #f0ece6;
+  --muted: #7a7472;
+  --dim: #4a4644;
+
+  --baby: #C4916A;
+  --baby-soft: rgba(196,145,106,0.15);
+  --preg: #8A7EC4;
+  --preg-soft: rgba(138,126,196,0.15);
+  --spa: #6AA89E;
+  --spa-soft: rgba(106,168,158,0.15);
+  --iris: #C46A8A;
+  --iris-soft: rgba(196,106,138,0.15);
+
+  --accent: #C4916A;
+  --gold: #C4A87A;
+  --red: #C46A6A;
+  --green: #6AB87A;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ─── LOGIN ─────────────────────────────── */
+#loginScreen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 32px;
+  z-index: 1000;
+}
+
+.login-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+.login-sub { font-size: 12px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 48px; }
+
+.login-form { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+
+.studio-select {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 4px;
+}
+.studio-btn {
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.studio-btn.active { border-color: var(--accent); color: var(--accent); background: var(--baby-soft); }
+
+.inp {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.inp:focus { border-color: var(--accent); }
+.inp::placeholder { color: var(--dim); }
+
+.btn-login {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 15px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: opacity 0.2s;
+}
+.btn-login:active { opacity: 0.8; }
+
+/* ─── APP SHELL ──────────────────────────── */
+#app { display: none; flex-direction: column; min-height: 100vh; }
+
+/* TOPBAR */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+}
+
+.hamburger {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: none;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 5px;
+}
+.hamburger span {
+  display: block; width: 18px; height: 1.5px;
+  background: var(--text); border-radius: 2px;
+  transition: all 0.25s;
+}
+
+.topbar-title { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--text); flex: 1; }
+.topbar-studio {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--baby-soft); color: var(--accent);
+}
+
+.topbar-date { font-size: 12px; color: var(--muted); }
+
+/* DRAWER */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.drawer-overlay.open { opacity: 1; pointer-events: all; }
+
+.drawer {
+  position: fixed; top: 0; left: -280px; bottom: 0;
+  width: 280px; background: var(--surface);
+  z-index: 101; transition: left 0.3s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+}
+.drawer.open { left: 0; }
+
+.drawer-header {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer-logo { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--accent); }
+.drawer-user { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.drawer-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+.drawer-section-label {
+  font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--dim); padding: 10px 10px 6px;
+}
+
+.drawer-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 10px; border-radius: 10px;
+  cursor: pointer; font-size: 14px; font-weight: 500;
+  color: var(--muted); transition: all 0.15s; margin-bottom: 2px;
+}
+.drawer-item:hover, .drawer-item.active { background: var(--surface2); color: var(--text); }
+.drawer-item .di { font-size: 16px; width: 22px; text-align: center; }
+
+.drawer-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.logout-btn {
+  width: 100%; padding: 11px; border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+  font-family: 'Nunito', sans-serif; font-size: 13px;
+  cursor: pointer; transition: all 0.15s;
+}
+.logout-btn:hover { color: var(--red); border-color: var(--red); }
+
+/* ─── PAGES ──────────────────────────────── */
+.page { display: none; flex: 1; overflow-y: auto; }
+.page.active { display: block; }
+
+/* ─── CALENDAR PAGE ──────────────────────── */
+.cal-controls {
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.cal-nav {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--surface2); border: none;
+  color: var(--text); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.cal-month { flex: 1; text-align: center; font-family: 'Playfair Display', serif; font-size: 16px; }
+
+.view-tabs {
+  display: flex; gap: 2px;
+  background: var(--surface2); border-radius: 8px; padding: 3px;
+}
+.view-tab {
+  padding: 5px 10px; border-radius: 6px; border: none;
+  background: transparent; color: var(--muted);
+  font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.view-tab.active { background: var(--surface3); color: var(--text); }
+
+/* Monthly grid */
+.cal-grid { padding: 0 16px 12px; }
+.cal-days-header {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  text-align: center; padding: 10px 0 6px;
+}
+.cal-days-header span { font-size: 10px; font-weight: 600; color: var(--dim); }
+
+.cal-grid-cells {
+  display: grid; grid-template-columns: repeat(7,1fr); gap: 3px;
+}
+.cal-cell {
+  aspect-ratio: 1; border-radius: 8px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding-top: 5px; cursor: pointer;
+  transition: background 0.15s; position: relative;
+}
+.cal-cell:hover { background: var(--surface2); }
+.cal-cell.today { background: var(--surface2); border: 1px solid var(--accent); }
+.cal-cell.other-month .cal-cell-day { color: var(--dim); }
+.cal-cell-day { font-size: 12px; font-weight: 500; }
+.cal-dots { display: flex; gap: 2px; margin-top: 3px; flex-wrap: wrap; justify-content: center; }
+.cal-dot { width: 4px; height: 4px; border-radius: 50%; }
+
+/* Daily view */
+.day-view { padding: 0 16px; }
+.day-header { padding: 14px 0 10px; font-family: 'Playfair Display', serif; font-size: 15px; color: var(--muted); }
+.day-slots { display: flex; flex-direction: column; gap: 8px; padding-bottom: 100px; }
+
+.appt-card {
+  border-radius: 12px; padding: 14px 15px;
+  border-left: 3px solid transparent;
+  background: var(--surface);
+  position: relative; cursor: pointer;
+  transition: all 0.15s;
+}
+.appt-card:active { transform: scale(0.98); }
+.appt-card.baby { border-left-color: var(--baby); background: var(--surface); }
+.appt-card.preg { border-left-color: var(--preg); }
+.appt-card.spa { border-left-color: var(--spa); }
+.appt-card.iris { border-left-color: var(--iris); }
+
+.appt-time { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 600; letter-spacing: 0.5px; }
+.appt-client { font-size: 15px; font-weight: 600; color: var(--text); }
+.appt-pkg { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.appt-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+.tag {
+  font-size: 10px; font-weight: 600;
+  padding: 3px 9px; border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+.tag-baby { background: var(--baby-soft); color: var(--baby); }
+.tag-preg { background: var(--preg-soft); color: var(--preg); }
+.tag-spa { background: var(--spa-soft); color: var(--spa); }
+.tag-iris { background: var(--iris-soft); color: var(--iris); }
+.tag-paid { background: rgba(106,184,122,0.15); color: var(--green); }
+.tag-debt { background: rgba(196,106,106,0.15); color: var(--red); }
+.tag-wa { background: rgba(37,211,102,0.12); color: #25D366; }
+
+.appt-wa {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(37,211,102,0.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; text-decoration: none;
+}
+
+/* FAB */
+.fab {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 56px; height: 56px; border-radius: 16px;
+  background: var(--accent); border: none;
+  color: white; font-size: 26px;
+  cursor: pointer; z-index: 40;
+  box-shadow: 0 4px 20px rgba(196,145,106,0.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.fab:active { transform: scale(0.92); }
+
+/* ─── MODAL ──────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 200; display: none; align-items: flex-end;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  width: 100%; max-height: 92vh;
+  overflow-y: auto; padding: 20px 20px 40px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-handle { width: 36px; height: 3px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+.modal-title { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 20px; }
+
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: block; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+select.inp { appearance: none; }
+
+.studio-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio-chip {
+  padding: 8px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: transparent; color: var(--muted);
+  font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.studio-chip.baby.sel { border-color: var(--baby); color: var(--baby); background: var(--baby-soft); }
+.studio-chip.preg.sel { border-color: var(--preg); color: var(--preg); background: var(--preg-soft); }
+.studio-chip.spa.sel { border-color: var(--spa); color: var(--spa); background: var(--spa-soft); }
+.studio-chip.iris.sel { border-color: var(--iris); color: var(--iris); background: var(--iris-soft); }
+
+.pkg-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+.pkg-item {
+  padding: 10px 14px; border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: transparent; color: var(--muted);
+  font-family: 'Nunito', sans-serif; font-size: 13px;
+  cursor: pointer; transition: all 0.15s; text-align: left;
+}
+.pkg-item.sel { border-color: var(--accent); color: var(--text); background: var(--baby-soft); }
+
+/* İris extra */
+.iris-opts { display: flex; gap: 8px; }
+.iris-opt {
+  flex: 1; padding: 10px; border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: transparent; color: var(--muted);
+  font-family: 'Nunito', sans-serif; font-size: 13px;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.iris-opt.sel { border-color: var(--iris); color: var(--iris); background: var(--iris-soft); }
+
+.btn-save {
+  width: 100%; padding: 15px; border-radius: 12px;
+  background: var(--accent); border: none; color: white;
+  font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 600;
+  cursor: pointer; margin-top: 8px; transition: opacity 0.2s;
+}
+.btn-save:active { opacity: 0.85; }
+
+.btn-wa {
+  width: 100%; padding: 14px; border-radius: 12px;
+  background: rgba(37,211,102,0.1); border: 1.5px solid rgba(37,211,102,0.3);
+  color: #25D366; font-family: 'Nunito', sans-serif;
+  font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 10px;
+  transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+
+/* ─── REPORTS PAGE ───────────────────────── */
+.page-inner { padding: 16px; padding-bottom: 80px; }
+
+.report-header { display: flex; gap: 8px; margin-bottom: 16px; }
+.period-btn {
+  flex: 1; padding: 10px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: transparent;
+  color: var(--muted); font-family: 'Nunito', sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.period-btn.active { border-color: var(--accent); color: var(--accent); background: var(--baby-soft); }
+
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+.stat-card {
+  background: var(--surface); border-radius: 14px;
+  border: 1px solid var(--border); padding: 16px;
+}
+.stat-card.full { grid-column: 1/-1; }
+.stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+.stat-val { font-family: 'Playfair Display', serif; font-size: 28px; color: var(--text); }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.stat-trend { font-size: 11px; margin-top: 6px; }
+.trend-up { color: var(--green); }
+.trend-down { color: var(--red); }
+
+.section-title { font-family: 'Playfair Display', serif; font-size: 16px; margin: 20px 0 12px; }
+
+.cost-item {
+  background: var(--surface); border-radius: 12px;
+  border: 1px solid var(--border); padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.cost-name { font-size: 14px; font-weight: 500; }
+.cost-amount { font-size: 15px; font-weight: 600; color: var(--red); }
+
+.cost-add {
+  width: 100%; padding: 13px; border-radius: 12px;
+  background: transparent; border: 1.5px dashed var(--border);
+  color: var(--muted); font-family: 'Nunito', sans-serif;
+  font-size: 13px; cursor: pointer; transition: all 0.15s;
+}
+.cost-add:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Studio breakdown */
+.studio-row {
+  background: var(--surface); border-radius: 12px;
+  border: 1px solid var(--border); padding: 14px 16px;
+  margin-bottom: 8px;
+}
+.studio-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.studio-row-name { font-size: 14px; font-weight: 600; }
+.studio-row-amount { font-size: 15px; font-weight: 600; color: var(--green); }
+.bar-bg { height: 4px; background: var(--surface3); border-radius: 2px; }
+.bar-fill { height: 100%; border-radius: 2px; }
+
+/* ─── USERS PAGE ─────────────────────────── */
+.user-card {
+  background: var(--surface); border-radius: 12px;
+  border: 1px solid var(--border); padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 8px;
+}
+.user-avatar {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; flex-shrink: 0;
+}
+.ua-admin { background: var(--baby-soft); color: var(--baby); }
+.ua-viewer { background: var(--surface3); color: var(--muted); }
+
+.user-info { flex: 1; }
+.user-name { font-size: 14px; font-weight: 600; }
+.user-studio { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.user-role-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 6px;
+}
+.role-admin { background: var(--baby-soft); color: var(--baby); }
+.role-viewer { background: var(--surface3); color: var(--dim); }
+
+.user-delete {
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--dim); cursor: pointer; font-size: 14px;
+  transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+}
+.user-delete:hover { border-color: var(--red); color: var(--red); }
+
+/* ─── PACKAGES PAGE ─────────────────────── */
+.pkg-section { margin-bottom: 24px; }
+.pkg-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  padding: 0 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+}
+.pkg-price-item {
+  background: var(--surface); border-radius: 12px;
+  border: 1px solid var(--border); padding: 13px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.pkg-price-name { font-size: 13.5px; font-weight: 500; flex: 1; }
+.price-inp {
+  width: 100px; background: var(--surface2);
+  border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; color: var(--text);
+  font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 600;
+  text-align: right; outline: none; transition: border-color 0.2s;
+}
+.price-inp:focus { border-color: var(--accent); }
+
+.save-prices-btn {
+  width: 100%; padding: 14px; border-radius: 12px;
+  background: var(--accent); border: none; color: white;
+  font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; margin-top: 8px;
+}
+
+/* ─── TOAST ──────────────────────────────── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--surface3); color: var(--text);
+  padding: 11px 20px; border-radius: 20px;
+  font-size: 13px; font-weight: 500; z-index: 300;
+  opacity: 0; transition: all 0.3s; white-space: nowrap;
+  border: 1px solid var(--border);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─── APPT DETAIL MODAL ──────────────────── */
+.detail-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.detail-key { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; }
+.detail-val { font-size: 14px; font-weight: 500; text-align: right; max-width: 60%; }
+
+.wa-template {
+  background: var(--surface2); border-radius: 12px; padding: 14px;
+  margin-bottom: 12px; font-size: 13px; line-height: 1.7; color: var(--text);
+  border: 1px solid var(--border);
+}
+.wa-type-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.wa-type-tab {
+  flex: 1; padding: 9px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: transparent;
+  color: var(--muted); font-family: 'Nunito', sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.wa-type-tab.active { border-color: #25D366; color: #25D366; background: rgba(37,211,102,0.08); }
+
+/* Conflict warning */
+.conflict-warn {
+  background: rgba(196,106,106,0.1); border: 1px solid rgba(196,106,106,0.3);
+  border-radius: 10px; padding: 10px 14px;
+  font-size: 12px; color: var(--red); margin-bottom: 12px; display: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<div id="loginScreen">
+  <div class="login-logo">Elixir<br>Studio</div>
+  <div class="login-sub">Yönetim Sistemi</div>
+
+  <div class="login-form">
+    <div>
+      <div class="form-label" style="margin-bottom:8px;">Stüdyo</div>
+      <div class="studio-select">
+        <button class="studio-btn active" onclick="selectStudio(this,'baby')">Elixir Baby</button>
+        <button class="studio-btn" onclick="selectStudio(this,'iris')">iris.eskisehir</button>
+        <button class="studio-btn" onclick="selectStudio(this,'spa')">Baby Spa</button>
+      </div>
+    </div>
+    <input class="inp" type="text" id="loginUser" placeholder="Kullanıcı adı" autocomplete="username">
+    <input class="inp" type="password" id="loginPass" placeholder="Şifre" autocomplete="current-password">
+    <button class="btn-login" onclick="doLogin()">Giriş Yap</button>
+  </div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div id="app">
+
+  <!-- DRAWER OVERLAY -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+  <!-- DRAWER -->
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="drawer-logo">Elixir Studio</div>
+      <div class="drawer-user" id="drawerUser">Admin · Elixir Baby Studio</div>
+    </div>
+    <div class="drawer-nav">
+      <div class="drawer-section-label">Ana</div>
+      <div class="drawer-item active" onclick="navTo('cal')"><span class="di">📅</span> Takvim</div>
+      <div class="drawer-item" onclick="navTo('reports')"><span class="di">📊</span> Ciro & Maliyet</div>
+
+      <div class="drawer-section-label" style="margin-top:8px;">Yönetim</div>
+      <div class="drawer-item" onclick="navTo('users')"><span class="di">👥</span> Kullanıcılar</div>
+      <div class="drawer-item" onclick="navTo('packages')"><span class="di">💰</span> Paket Fiyatları</div>
+    </div>
+    <div class="drawer-footer">
+      <button class="logout-btn" onclick="doLogout()">Çıkış Yap</button>
+    </div>
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="hamburger" onclick="openDrawer()">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="topbar-title" id="topbarTitle">Takvim</div>
+    <div class="topbar-studio" id="topbarStudio">Baby</div>
+  </div>
+
+  <!-- ── CALENDAR PAGE ── -->
+  <div class="page active" id="page-cal">
+    <div class="cal-controls">
+      <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+      <div class="cal-month" id="calMonth">Temmuz 2025</div>
+      <button class="cal-nav" onclick="changeMonth(1)">›</button>
+      <div class="view-tabs">
+        <button class="view-tab active" onclick="setView('month',this)">Ay</button>
+        <button class="view-tab" onclick="setView('week',this)">Hafta</button>
+        <button class="view-tab" onclick="setView('day',this)">Gün</button>
+      </div>
+    </div>
+
+    <!-- Monthly -->
+    <div id="monthView" class="cal-grid">
+      <div class="cal-days-header">
+        <span>Pt</span><span>Sa</span><span>Ça</span><span>Pe</span><span>Cu</span><span>Ct</span><span>Pz</span>
+      </div>
+      <div class="cal-grid-cells" id="calCells"></div>
+    </div>
+
+    <!-- Day view -->
+    <div id="dayView" style="display:none;" class="day-view">
+      <div class="day-header" id="dayViewHeader"></div>
+      <div class="day-slots" id="daySlots"></div>
+    </div>
+
+    <!-- Week view -->
+    <div id="weekView" style="display:none;" class="day-view">
+      <div class="day-header" id="weekViewHeader">Bu Hafta</div>
+      <div class="day-slots" id="weekSlots"></div>
+    </div>
+
+    <button class="fab" onclick="openNewAppt()">+</button>
+  </div>
+
+  <!-- ── REPORTS PAGE ── -->
+  <div class="page" id="page-reports">
+    <div class="page-inner">
+      <div class="report-header">
+        <button class="period-btn active" onclick="setPeriod('week',this)">Bu Hafta</button>
+        <button class="period-btn" onclick="setPeriod('month',this)">Bu Ay</button>
+        <button class="period-btn" onclick="setPeriod('year',this)">Bu Yıl</button>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-label">Toplam Ciro</div>
+          <div class="stat-val" id="rCiro">24.500 ₺</div>
+          <div class="stat-sub">Bu ay</div>
+          <div class="stat-trend trend-up">↑ %12 geçen aya göre</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Randevu</div>
+          <div class="stat-val" id="rAppt">18</div>
+          <div class="stat-sub">Tamamlanan</div>
+          <div class="stat-trend trend-up">↑ 3 artış</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Tahsilat</div>
+          <div class="stat-val" id="rTah">21.200 ₺</div>
+          <div class="stat-sub">Nakit + EFT</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Bekleyen</div>
+          <div class="stat-val" id="rBek" style="color:var(--red)">3.300 ₺</div>
+          <div class="stat-sub">4 müşteri</div>
+        </div>
+      </div>
+
+      <div class="section-title">Stüdyo Bazlı</div>
+      <div id="studioBreakdown">
+      <div class="studio-row">
+        <div class="studio-row-header">
+          <span class="studio-row-name" style="color:var(--baby)">Elixir Baby Studio</span>
+          <span class="studio-row-amount">—</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:0%;background:var(--baby)"></div></div>
+      </div>
+      </div>
+
+      <div class="section-title">Giderler</div>
+      <div id="costList">
+        <div class="cost-item"><span class="cost-name">Kira</span><span class="cost-amount">8.000 ₺</span></div>
+        <div class="cost-item"><span class="cost-name">Elektrik</span><span class="cost-amount">1.200 ₺</span></div>
+        <div class="cost-item"><span class="cost-name">Malzeme</span><span class="cost-amount">650 ₺</span></div>
+      </div>
+      <button class="cost-add" onclick="addCost()">+ Gider Ekle</button>
+
+      <div class="stat-row" style="margin-top:16px;">
+        <div class="stat-card full">
+          <div class="stat-label">Net Kâr</div>
+          <div class="stat-val" id="netKar" style="color:var(--green)">—</div>
+          <div class="stat-sub">Ciro − Giderler</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── USERS PAGE ── -->
+  <div class="page" id="page-users">
+    <div class="page-inner">
+      <div id="userList">
+        <div class="user-card">
+          <div class="user-avatar ua-admin">ER</div>
+          <div class="user-info">
+            <div class="user-name">Erenalp</div>
+            <div class="user-studio">Tüm Stüdyolar</div>
+          </div>
+          <span class="user-role-badge role-admin">Admin</span>
+        </div>
+        <div class="user-card">
+          <div class="user-avatar ua-viewer">AY</div>
+          <div class="user-info">
+            <div class="user-name">Ayşe</div>
+            <div class="user-studio">Elixir Baby Studio</div>
+          </div>
+          <span class="user-role-badge role-viewer">Görüntüleyici</span>
+          <button class="user-delete" onclick="deleteUser(this)">✕</button>
+        </div>
+        <div class="user-card">
+          <div class="user-avatar ua-viewer">MK</div>
+          <div class="user-info">
+            <div class="user-name">Mehmet</div>
+            <div class="user-studio">Baby Spa</div>
+          </div>
+          <span class="user-role-badge role-viewer">Görüntüleyici</span>
+          <button class="user-delete" onclick="deleteUser(this)">✕</button>
+        </div>
+      </div>
+      <button class="cost-add" style="margin-top:12px;" onclick="openAddUser()">+ Kullanıcı Ekle</button>
+    </div>
+  </div>
+
+  <!-- ── PACKAGES PAGE ── -->
+  <div class="page" id="page-packages">
+    <div class="page-inner">
+
+      <div class="pkg-section">
+        <div class="pkg-section-title" style="color:var(--baby)">🎂 Yaş Çekimi Paketleri</div>
+        <div id="yasPkgs"></div>
+      </div>
+
+      <div class="pkg-section">
+        <div class="pkg-section-title" style="color:var(--preg)">🤰 Hamile Çekimi Paketleri</div>
+        <div id="hamilePkgs"></div>
+      </div>
+
+      <div class="pkg-section">
+        <div class="pkg-section-title" style="color:var(--spa)">🛁 Baby Spa Paketleri</div>
+        <div id="spaPkgs"></div>
+      </div>
+
+      <div class="pkg-section">
+        <div class="pkg-section-title" style="color:var(--iris)">👁 İris Paketleri</div>
+        <div id="irisPkgs"></div>
+      </div>
+
+      <button class="save-prices-btn" onclick="savePrices()">Fiyatları Kaydet</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ═══ NEW APPT MODAL ═══ -->
+<div class="modal-overlay" id="apptModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Yeni Randevu</div>
+
+    <div class="conflict-warn" id="conflictWarn">
+      ⚠️ Bu saatte çakışan randevu var! Hamile / İris / Yaş çekimleri aynı anda olamaz.
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Stüdyo</label>
+      <div class="studio-chips">
+        <button class="studio-chip baby" onclick="selectChip(this,'baby','apptStudio')">Elixir Baby</button>
+        <button class="studio-chip preg" onclick="selectChip(this,'preg','apptStudio')">Hamile</button>
+        <button class="studio-chip spa" onclick="selectChip(this,'spa','apptStudio')">Baby Spa</button>
+        <button class="studio-chip iris" onclick="selectChip(this,'iris','apptStudio')">iris.eskisehir</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Tarih</label>
+        <input class="inp" type="date" id="apptDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Saat</label>
+        <input class="inp" type="time" id="apptTime" value="10:00">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Müşteri Adı</label>
+      <input class="inp" type="text" id="apptClient" placeholder="Ad Soyad">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Telefon</label>
+      <input class="inp" type="tel" id="apptPhone" placeholder="05XX XXX XX XX">
+    </div>
+
+    <div class="form-group" id="pkgGroup">
+      <label class="form-label">Paket</label>
+      <div class="pkg-list" id="pkgList"></div>
+    </div>
+
+    <!-- İris extra -->
+    <div class="form-group" id="irisGroup" style="display:none">
+      <label class="form-label">Ürün Tipi</label>
+      <div class="iris-opts">
+        <button class="iris-opt" onclick="selectIrisType(this,'tablo')">Tablo</button>
+        <button class="iris-opt" onclick="selectIrisType(this,'aksesuar')">Aksesuar</button>
+      </div>
+      <input class="inp" type="text" id="irisDetail" placeholder="Ebat / Ürün özelliği" style="margin-top:8px;">
+    </div>
+
+    <!-- Pasta seçimi -->
+    <div class="form-group" id="pastaGroup" style="display:none">
+      <label class="form-label">Pasta</label>
+      <div class="iris-opts">
+        <button class="iris-opt" onclick="selectPasta(this,'bizden')">Bizden</button>
+        <button class="iris-opt" onclick="selectPasta(this,'aileden')">Aileden</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Tutar (₺)</label>
+        <input class="inp" type="number" id="apptAmount" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Peşinat (₺)</label>
+        <input class="inp" type="number" id="apptDeposit" placeholder="0">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Not</label>
+      <input class="inp" type="text" id="apptNote" placeholder="Opsiyonel">
+    </div>
+
+    <button class="btn-save" onclick="saveAppt()">Randevuyu Kaydet</button>
+    <button class="btn-wa" onclick="sendWaPreview()">
+      <span>📱</span> WhatsApp Bildirim Gönder
+    </button>
+    <button class="btn-save" style="background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:8px;" onclick="closeModal('apptModal')">İptal</button>
+  </div>
+</div>
+
+<!-- ═══ APPT DETAIL MODAL ═══ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="detailTitle">Randevu Detayı</div>
+    <div id="detailContent"></div>
+
+    <div style="margin-top:16px;">
+      <div class="wa-type-tabs">
+        <button class="wa-type-tab active" onclick="setWaType('bilgi',this)">📋 Çekim Öncesi</button>
+        <button class="wa-type-tab" onclick="setWaType('teslimat',this)">📦 Teslimat</button>
+        <button class="wa-type-tab" onclick="setWaType('manuel',this)">✏️ Manuel</button>
+      </div>
+      <div class="wa-template" id="waTemplate"></div>
+      <button class="btn-wa" id="sendWaBtn">📱 WhatsApp'a Gönder</button>
+    </div>
+
+    <button class="btn-save" style="background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:10px;" onclick="closeModal('detailModal')">Kapat</button>
+  </div>
+</div>
+
+<!-- ═══ ADD USER MODAL ═══ -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Kullanıcı Ekle</div>
+    <div class="form-group">
+      <label class="form-label">Ad Soyad</label>
+      <input class="inp" type="text" id="newUserName" placeholder="Ad Soyad">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Kullanıcı Adı</label>
+      <input class="inp" type="text" id="newUserLogin" placeholder="kullanici_adi">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Şifre</label>
+      <input class="inp" type="password" id="newUserPass" placeholder="••••••">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Stüdyo Erişimi</label>
+      <select class="inp" id="newUserStudio">
+        <option value="all">Tüm Stüdyolar</option>
+        <option value="baby">Elixir Baby Studio</option>
+        <option value="iris">iris.eskisehir</option>
+        <option value="spa">Elixir Baby Spa</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Rol</label>
+      <select class="inp" id="newUserRole">
+        <option value="viewer">Görüntüleyici</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <button class="btn-save" onclick="saveUser()">Kullanıcı Ekle</button>
+    <button class="btn-save" style="background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:8px;" onclick="closeModal('userModal')">İptal</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── FIREBASE ────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBf6PjYgEQ11hQuzRpncGdocwGf9EAlbcY",
+  authDomain: "elixir-studio-crm.firebaseapp.com",
+  projectId: "elixir-studio-crm",
+  storageBucket: "elixir-studio-crm.firebasestorage.app",
+  messagingSenderId: "377250076824",
+  appId: "1:377250076824:web:85ed68bc5bfcc851b0d8ed",
+  measurementId: "G-P1XE96MX4R"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ─── STATE ───────────────────────────────
+const PACKAGES = {
+  yas: [
+    '1 Konsept','2 Konsept','3 Konsept',
+    '1 Konsept + Aile','2 Konsept + Aile','3 Konsept + Aile',
+    '1 Pastalı Konsept',
+    '1 Pastalı Konsept + 1 Konsept',
+    '1 Pastalı Konsept + 1 Konsept + Aile',
+    '2 Konsept + 1 Pastalı Konsept + Aile',
+  ],
+  hamile: ['1 Elbiseli Çekim','2 Elbiseli Çekim','3 Elbiseli Çekim'],
+  spa: ['Paylaşımlı Seans','Paylaşımsız Seans'],
+  iris: ['İris Çekimi'],
+};
+
+let prices = {};
+let appointments = [];
+let firestoreUsers = [];
+let currentUser = null;
+let selectedStudio = 'baby';
+let currentDate = new Date();
+let currentView = 'month';
+let selectedApptStudio = null;
+let selectedPkg = null;
+let selectedIrisType = null;
+let selectedPasta = null;
+let waType = 'bilgi';
+let currentAppt = null;
+let unsubAppts = null;
+
+const STUDIO_LABELS = { baby:'Baby', iris:'İris', spa:'Spa', preg:'Hamile' };
+const STUDIO_COLORS = { baby:'var(--baby)', iris:'var(--iris)', spa:'var(--spa)', preg:'var(--preg)' };
+const STUDIO_CLASSES = { baby:'baby', iris:'iris', spa:'spa', preg:'preg' };
+
+// ─── FIRESTORE HELPERS ────────────────────
+async function fsGetUsers() {
+  const snap = await db.collection('users').get();
+  return snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+
+async function fsGetPrices() {
+  try {
+    const snap = await db.collection('settings').doc('prices').get();
+    return snap.exists ? snap.data() : {};
+  } catch(e){ return {}; }
+}
+
+async function fsSavePrices(p) {
+  await db.collection('settings').doc('prices').set(p);
+}
+
+function fsListenAppts(callback) {
+  return db.collection('appointments').orderBy('date').orderBy('time')
+    .onSnapshot(snap=>{
+      appointments = snap.docs.map(d=>({id:d.id,...d.data()}));
+      callback();
+    });
+}
+
+async function fsAddAppt(appt) {
+  await db.collection('appointments').add(appt);
+}
+
+async function fsDeleteAppt(id) {
+  await db.collection('appointments').doc(id).delete();
+}
+
+async function fsAddUser(user) {
+  await db.collection('users').add(user);
+}
+
+async function fsDeleteUser(id) {
+  await db.collection('users').doc(id).delete();
+}
+
+// ─── AUTH ─────────────────────────────────
+function selectStudio(btn, s) {
+  document.querySelectorAll('.studio-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedStudio = s;
+}
+
+async function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+
+  // Hardcoded admin always works
+  const builtIn = [
+    {id:'admin', name:'Erenalp', login:'erenalp', pass:'1234', role:'admin', studio:'all'},
+  ];
+
+  let found = builtIn.find(x=>x.login===u && x.pass===p);
+
+  if(!found) {
+    showToast('Kontrol ediliyor...');
+    try {
+      const users = await fsGetUsers();
+      found = users.find(x=>x.login===u && x.pass===p);
+    } catch(e) { showToast('Bağlantı hatası'); return; }
+  }
+
+  if(!found) { showToast('Hatalı kullanıcı adı veya şifre'); return; }
+  currentUser = found;
+  localStorage.setItem('session', JSON.stringify(found));
+  startApp();
+}
+
+async function startApp() {
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('app').style.flexDirection='column';
+
+  const sl = {'baby':'Elixir Baby Studio','iris':'iris.eskisehir','spa':'Baby Spa','all':'Tüm'};
+  document.getElementById('drawerUser').textContent = currentUser.name + ' · ' + (sl[currentUser.studio]||currentUser.studio);
+  document.getElementById('topbarStudio').textContent = sl[currentUser.studio]||'Tüm';
+
+  // Load prices
+  prices = await fsGetPrices();
+
+  // Real-time appointments listener
+  if(unsubAppts) unsubAppts();
+  unsubAppts = fsListenAppts(()=>{
+    renderCalendar();
+  });
+
+  renderCalendar();
+  renderPackagesPage();
+  await loadUsersList();
+}
+
+function doLogout() {
+  if(unsubAppts) { unsubAppts(); unsubAppts=null; }
+  localStorage.removeItem('session');
+  currentUser=null;
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  closeDrawer();
+}
+
+// Auto-login
+window.addEventListener('load', ()=>{
+  const s = localStorage.getItem('session');
+  if(s){ currentUser=JSON.parse(s); startApp(); }
+});
+
+// ─── DRAWER ──────────────────────────────
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+function navTo(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.drawer-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  event.currentTarget.classList.add('active');
+  const titles={cal:'Takvim',reports:'Ciro & Maliyet',users:'Kullanıcılar',packages:'Paket Fiyatları'};
+  document.getElementById('topbarTitle').textContent = titles[page]||'';
+  closeDrawer();
+  if(page==='cal') renderCalendar();
+  if(page==='users') loadUsersList();
+  if(page==='reports') renderReports();
+}
+
+// ─── CALENDAR ────────────────────────────
+const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+function changeMonth(d) {
+  currentDate.setMonth(currentDate.getMonth()+d);
+  renderCalendar();
+}
+
+function setView(v, btn) {
+  currentView = v;
+  document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('monthView').style.display = v==='month'?'block':'none';
+  document.getElementById('dayView').style.display = v==='day'?'block':'none';
+  document.getElementById('weekView').style.display = v==='week'?'block':'none';
+  renderCalendar();
+}
+
+function renderCalendar() {
+  document.getElementById('calMonth').textContent = MONTHS[currentDate.getMonth()]+' '+currentDate.getFullYear();
+  if(currentView==='month') renderMonth();
+  else if(currentView==='day') renderDay(currentDate);
+  else renderWeek();
+}
+
+function renderMonth() {
+  const y=currentDate.getFullYear(), m=currentDate.getMonth();
+  const first=new Date(y,m,1);
+  let dow=first.getDay(); if(dow===0) dow=7; dow--;
+  const cells=document.getElementById('calCells');
+  cells.innerHTML='';
+  const today=new Date();
+
+  for(let i=0;i<dow;i++){
+    const d=new Date(y,m,1-dow+i);
+    cells.appendChild(makeCell(d,true));
+  }
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  for(let i=1;i<=daysInMonth;i++){
+    const d=new Date(y,m,i);
+    const isToday=d.toDateString()===today.toDateString();
+    cells.appendChild(makeCell(d,false,isToday));
+  }
+  const rem=(7-cells.children.length%7)%7;
+  for(let i=1;i<=rem;i++){
+    const d=new Date(y,m+1,i);
+    cells.appendChild(makeCell(d,true));
+  }
+}
+
+function makeCell(d, other, isToday) {
+  const cell=document.createElement('div');
+  cell.className='cal-cell'+(other?' other-month':'')+(isToday?' today':'');
+  const dateStr=fmtDate(d);
+  const dayAppts=appointments.filter(a=>a.date===dateStr);
+
+  cell.innerHTML=`<span class="cal-cell-day">${d.getDate()}</span>
+    <div class="cal-dots">${dayAppts.map(a=>`<span class="cal-dot" style="background:${STUDIO_COLORS[a.studio]||'var(--baby)'}"></span>`).join('')}</div>`;
+  cell.onclick=()=>{ currentDate=new Date(d); setView('day',document.querySelectorAll('.view-tab')[2]); };
+  return cell;
+}
+
+function renderDay(d) {
+  const dateStr=fmtDate(d);
+  document.getElementById('dayViewHeader').textContent=formatDateTR(d);
+  const dayAppts=appointments.filter(a=>a.date===dateStr).sort((a,b)=>a.time.localeCompare(b.time));
+  const slots=document.getElementById('daySlots');
+  slots.innerHTML='';
+  if(!dayAppts.length){
+    slots.innerHTML='<div style="color:var(--dim);font-size:13px;padding:20px 0;">Bu gün randevu yok</div>';
+    return;
+  }
+  dayAppts.forEach(a=>slots.appendChild(makeApptCard(a)));
+}
+
+function renderWeek() {
+  const d=new Date(currentDate);
+  const dow=d.getDay(); const diff=d.getDate()-(dow===0?6:dow-1);
+  d.setDate(diff);
+  const slots=document.getElementById('weekSlots');
+  slots.innerHTML='';
+  document.getElementById('weekViewHeader').textContent='Bu Hafta';
+  for(let i=0;i<7;i++){
+    const day=new Date(d); day.setDate(d.getDate()+i);
+    const dateStr=fmtDate(day);
+    const dayAppts=appointments.filter(a=>a.date===dateStr).sort((a,b)=>a.time.localeCompare(b.time));
+    if(dayAppts.length){
+      const hdr=document.createElement('div');
+      hdr.style.cssText='font-size:12px;font-weight:600;color:var(--muted);padding:10px 0 6px;';
+      hdr.textContent=formatDateTR(day);
+      slots.appendChild(hdr);
+      dayAppts.forEach(a=>slots.appendChild(makeApptCard(a)));
+    }
+  }
+  if(!slots.children.length) slots.innerHTML='<div style="color:var(--dim);font-size:13px;padding:20px 0;">Bu hafta randevu yok</div>';
+}
+
+function makeApptCard(a) {
+  const card=document.createElement('div');
+  const sc=STUDIO_CLASSES[a.studio]||'baby';
+  const paid=a.deposit>=a.amount;
+  const phone=a.phone.replace(/\D/g,'');
+  const waMsg=encodeURIComponent(getWaMsg(a,'bilgi'));
+  card.className=`appt-card ${sc}`;
+  card.innerHTML=`
+    <div class="appt-time">${a.time}${a.note?' · '+a.note:''}</div>
+    <div class="appt-client">${a.client}</div>
+    <div class="appt-pkg">${a.pkg}</div>
+    <div class="appt-tags">
+      <span class="tag tag-${sc}">${STUDIO_LABELS[a.studio]||'Baby'}</span>
+      <span class="tag ${paid?'tag-paid':'tag-debt'}">${paid?'Ödendi':'Kalan: '+(a.amount-a.deposit)+' ₺'}</span>
+    </div>
+    <a class="appt-wa" href="https://wa.me/90${phone}?text=${waMsg}" target="_blank" onclick="event.stopPropagation()">📱</a>
+  `;
+  card.onclick=()=>openDetail(a);
+  return card;
+}
+
+// ─── NEW APPT MODAL ───────────────────────
+function openNewAppt() {
+  selectedApptStudio=null; selectedPkg=null; selectedIrisType=null; selectedPasta=null;
+  document.querySelectorAll('.studio-chip').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('pkgList').innerHTML='';
+  document.getElementById('irisGroup').style.display='none';
+  document.getElementById('pastaGroup').style.display='none';
+  document.getElementById('conflictWarn').style.display='none';
+  const today=fmtDate(new Date());
+  document.getElementById('apptDate').value=today;
+  document.getElementById('apptTime').value='10:00';
+  document.getElementById('apptClient').value='';
+  document.getElementById('apptPhone').value='';
+  document.getElementById('apptNote').value='';
+  document.getElementById('apptAmount').value='';
+  document.getElementById('apptDeposit').value='';
+  openModal('apptModal');
+}
+
+function selectChip(btn, type, field) {
+  btn.parentElement.querySelectorAll('.studio-chip').forEach(c=>c.classList.remove('sel'));
+  btn.classList.add('sel');
+  selectedApptStudio=type;
+  // Load packages
+  let pkgs=[];
+  if(type==='baby'||type==='preg') {
+    pkgs = type==='baby' ? PACKAGES.yas : PACKAGES.hamile;
+  } else if(type==='spa') pkgs=PACKAGES.spa;
+  else if(type==='iris') pkgs=PACKAGES.iris;
+
+  document.getElementById('irisGroup').style.display = type==='iris'?'block':'none';
+  renderPkgList(pkgs);
+  checkConflict();
+}
+
+function renderPkgList(pkgs) {
+  const list=document.getElementById('pkgList');
+  list.innerHTML='';
+  selectedPkg=null;
+  pkgs.forEach(p=>{
+    const btn=document.createElement('button');
+    btn.className='pkg-item';
+    btn.textContent=p;
+    const hasPasta = p.includes('Pastalı');
+    btn.onclick=()=>{
+      list.querySelectorAll('.pkg-item').forEach(b=>b.classList.remove('sel'));
+      btn.classList.add('sel');
+      selectedPkg=p;
+      document.getElementById('pastaGroup').style.display = hasPasta?'block':'none';
+      // auto-fill price
+      const key=p; const saved=prices[key];
+      if(saved) document.getElementById('apptAmount').value=saved;
+    };
+    list.appendChild(btn);
+  });
+}
+
+function selectIrisType(btn, type) {
+  document.querySelectorAll('.iris-opt').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel'); selectedIrisType=type;
+}
+
+function selectPasta(btn, type) {
+  document.getElementById('pastaGroup').querySelectorAll('.iris-opt').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel'); selectedPasta=type;
+}
+
+function checkConflict() {
+  const date=document.getElementById('apptDate').value;
+  const time=document.getElementById('apptTime').value;
+  const conflictStudios=['baby','preg','iris'];
+  if(!selectedApptStudio || !conflictStudios.includes(selectedApptStudio)) {
+    document.getElementById('conflictWarn').style.display='none'; return;
+  }
+  const conflict=appointments.find(a=>a.date===date && a.time===time && conflictStudios.includes(a.studio) && a.studio!==selectedApptStudio);
+  document.getElementById('conflictWarn').style.display = conflict?'block':'none';
+}
+
+document.getElementById('apptDate').addEventListener('change', checkConflict);
+document.getElementById('apptTime').addEventListener('change', checkConflict);
+
+async function saveAppt() {
+  const client=document.getElementById('apptClient').value.trim();
+  const date=document.getElementById('apptDate').value;
+  if(!client||!date||!selectedApptStudio||!selectedPkg){ showToast('Lütfen tüm alanları doldurun'); return; }
+  const appt={
+    studio: selectedApptStudio,
+    date, time: document.getElementById('apptTime').value,
+    client, phone: document.getElementById('apptPhone').value,
+    pkg: selectedPkg,
+    amount: parseFloat(document.getElementById('apptAmount').value)||0,
+    deposit: parseFloat(document.getElementById('apptDeposit').value)||0,
+    note: document.getElementById('apptNote').value,
+    irisType: selectedIrisType||'', irisDetail: document.getElementById('irisDetail').value,
+    pastaFrom: selectedPasta||'',
+    createdBy: currentUser?.name||'',
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    await fsAddAppt(appt);
+    closeModal('apptModal');
+    showToast('✓ Randevu kaydedildi');
+  } catch(e) {
+    showToast('Kayıt hatası: '+e.message);
+  }
+}
+
+function sendWaPreview() {
+  const phone=document.getElementById('apptPhone').value.replace(/\D/g,'');
+  const client=document.getElementById('apptClient').value||'Müşteri';
+  const date=document.getElementById('apptDate').value;
+  const time=document.getElementById('apptTime').value;
+  const pkg=selectedPkg||'';
+  const msg=`Merhaba ${client} hanım/bey 👋\n\nElixir Studio randevunuzu hatırlatmak istedik.\n📅 Tarih: ${formatDateStrTR(date)}\n⏰ Saat: ${time}\n📦 Paket: ${pkg}\n\nSizi bekliyoruz! 🌸`;
+  if(phone) window.open(`https://wa.me/90${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+  else showToast('Telefon numarası gerekli');
+}
+
+// ─── DETAIL MODAL ─────────────────────────
+function openDetail(a) {
+  currentAppt=a;
+  waType='bilgi';
+  document.getElementById('detailTitle').textContent=a.client;
+  const paid=a.deposit>=a.amount;
+  document.getElementById('detailContent').innerHTML=`
+    <div class="detail-row"><span class="detail-key">Stüdyo</span><span class="detail-val" style="color:${STUDIO_COLORS[a.studio]}">${STUDIO_LABELS[a.studio]}</span></div>
+    <div class="detail-row"><span class="detail-key">Tarih / Saat</span><span class="detail-val">${formatDateStrTR(a.date)} · ${a.time}</span></div>
+    <div class="detail-row"><span class="detail-key">Paket</span><span class="detail-val">${a.pkg}</span></div>
+    <div class="detail-row"><span class="detail-key">Tutar</span><span class="detail-val">${a.amount} ₺</span></div>
+    <div class="detail-row"><span class="detail-key">Ödenen</span><span class="detail-val">${a.deposit} ₺</span></div>
+    <div class="detail-row"><span class="detail-key">Kalan</span><span class="detail-val" style="color:${paid?'var(--green)':'var(--red)'}">${paid?'Tamamlandı':(a.amount-a.deposit)+' ₺'}</span></div>
+    ${a.note?`<div class="detail-row"><span class="detail-key">Not</span><span class="detail-val">${a.note}</span></div>`:''}
+    ${a.irisType?`<div class="detail-row"><span class="detail-key">Ürün</span><span class="detail-val">${a.irisType} · ${a.irisDetail}</span></div>`:''}
+  `;
+  document.querySelectorAll('.wa-type-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.wa-type-tab')[0].classList.add('active');
+  updateWaTemplate();
+  openModal('detailModal');
+}
+
+function setWaType(type, btn) {
+  waType=type; updateWaTemplate();
+  document.querySelectorAll('.wa-type-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function getWaMsg(a, type) {
+  if(type==='bilgi') return `Merhaba ${a.client} hanım/bey 👋\n\nÇekim randevunuzu hatırlatmak istedik.\n📅 ${formatDateStrTR(a.date)} · ${a.time}\n📦 ${a.pkg}\n\nLütfen 15 dakika erken gelmeye özen gösterin. Bekliyoruz! 🌸\n\n— Elixir Studio`;
+  if(type==='teslimat') return `Merhaba ${a.client} hanım/bey 💌\n\nFotoğraflarınız hazır! En kısa sürede teslim edilecektir.\n\nBizi tercih ettiğiniz için teşekkür ederiz 🌸\n\n— Elixir Studio`;
+  return '';
+}
+
+function updateWaTemplate() {
+  if(!currentAppt) return;
+  let txt='';
+  if(waType==='manuel') {
+    document.getElementById('waTemplate').innerHTML=`<textarea class="inp" style="width:100%;height:100px;font-size:13px;resize:none;" id="manualWaTxt" placeholder="Mesajınızı yazın..."></textarea>`;
+  } else {
+    txt=getWaMsg(currentAppt, waType);
+    document.getElementById('waTemplate').textContent=txt;
+  }
+  const phone=(currentAppt.phone||'').replace(/\D/g,'');
+  document.getElementById('sendWaBtn').onclick=()=>{
+    const msg=waType==='manuel'?(document.getElementById('manualWaTxt')||{value:''}).value : getWaMsg(currentAppt,waType);
+    window.open(`https://wa.me/90${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+  };
+}
+
+// ─── USERS ───────────────────────────────
+async function loadUsersList() {
+  const list = document.getElementById('userList');
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:10px 0;">Yükleniyor...</div>';
+  try {
+    const users = await fsGetUsers();
+    firestoreUsers = users;
+    list.innerHTML = '';
+    // Built-in admin
+    const adminCard = document.createElement('div');
+    adminCard.className = 'user-card';
+    adminCard.innerHTML = `
+      <div class="user-avatar ua-admin">ER</div>
+      <div class="user-info"><div class="user-name">Erenalp</div><div class="user-studio">Tüm Stüdyolar</div></div>
+      <span class="user-role-badge role-admin">Admin</span>`;
+    list.appendChild(adminCard);
+    users.forEach(u => {
+      const initials = u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      const sl = {'baby':'Elixir Baby','iris':'iris.eskisehir','spa':'Baby Spa','all':'Tüm'};
+      const card = document.createElement('div');
+      card.className = 'user-card';
+      card.innerHTML = `
+        <div class="user-avatar ua-viewer">${initials}</div>
+        <div class="user-info">
+          <div class="user-name">${u.name}</div>
+          <div class="user-studio">${sl[u.studio]||u.studio}</div>
+        </div>
+        <span class="user-role-badge role-${u.role}">${u.role==='admin'?'Admin':'Görüntüleyici'}</span>
+        <button class="user-delete" onclick="deleteUserById('${u.id}',this)">✕</button>`;
+      list.appendChild(card);
+    });
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--red);font-size:13px;">Yükleme hatası</div>';
+  }
+}
+
+async function deleteUserById(id, btn) {
+  if(!confirm('Bu kullanıcıyı silmek istiyor musunuz?')) return;
+  try {
+    await fsDeleteUser(id);
+    btn.closest('.user-card').remove();
+    showToast('Kullanıcı silindi');
+  } catch(e) { showToast('Silinemedi'); }
+}
+
+function openAddUser() { openModal('userModal'); }
+
+async function saveUser() {
+  const name=document.getElementById('newUserName').value.trim();
+  const login=document.getElementById('newUserLogin').value.trim();
+  const pass=document.getElementById('newUserPass').value;
+  if(!name||!login||!pass){ showToast('Tüm alanlar zorunlu'); return; }
+  const studio=document.getElementById('newUserStudio').value;
+  const role=document.getElementById('newUserRole').value;
+  try {
+    await fsAddUser({ name, login, pass, studio, role });
+    closeModal('userModal');
+    showToast('Kullanıcı eklendi');
+    loadUsersList();
+    document.getElementById('newUserName').value='';
+    document.getElementById('newUserLogin').value='';
+    document.getElementById('newUserPass').value='';
+  } catch(e) { showToast('Eklenemedi: '+e.message); }
+}
+
+// ─── PACKAGES PAGE ───────────────────────
+function renderPackagesPage() {
+  renderPkgSection('yasPkgs', PACKAGES.yas);
+  renderPkgSection('hamilePkgs', PACKAGES.hamile);
+  renderPkgSection('spaPkgs', PACKAGES.spa);
+  renderPkgSection('irisPkgs', PACKAGES.iris);
+}
+
+function renderPkgSection(elId, pkgs) {
+  const el=document.getElementById(elId);
+  el.innerHTML='';
+  pkgs.forEach(p=>{
+    const div=document.createElement('div');
+    div.className='pkg-price-item';
+    const saved=prices[p]||'';
+    div.innerHTML=`<span class="pkg-price-name">${p}</span><input class="price-inp" type="number" data-pkg="${p}" value="${saved}" placeholder="₺">`;
+    el.appendChild(div);
+  });
+}
+
+async function savePrices() {
+  document.querySelectorAll('.price-inp').forEach(inp=>{
+    if(inp.value) prices[inp.dataset.pkg]=parseFloat(inp.value);
+  });
+  try {
+    await fsSavePrices(prices);
+    showToast('✓ Fiyatlar kaydedildi');
+  } catch(e) { showToast('Kayıt hatası'); }
+}
+
+// ─── REPORTS ─────────────────────────────
+function setPeriod(p, btn) {
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReports(p);
+}
+
+function renderReports(period='month') {
+  const now = new Date();
+  let filtered = appointments;
+  if(period==='week') {
+    const start = new Date(now); start.setDate(now.getDate()-now.getDay()+1);
+    const end = new Date(start); end.setDate(start.getDate()+6);
+    filtered = appointments.filter(a=>a.date>=fmtDate(start)&&a.date<=fmtDate(end));
+  } else if(period==='month') {
+    const prefix = fmtDate(now).slice(0,7);
+    filtered = appointments.filter(a=>a.date.startsWith(prefix));
+  } else if(period==='year') {
+    const prefix = fmtDate(now).slice(0,4);
+    filtered = appointments.filter(a=>a.date.startsWith(prefix));
+  }
+
+  const ciro = filtered.reduce((s,a)=>s+(a.amount||0),0);
+  const tah = filtered.reduce((s,a)=>s+(a.deposit||0),0);
+  const bek = ciro - tah;
+
+  document.getElementById('rCiro').textContent = ciro.toLocaleString('tr')+' ₺';
+  document.getElementById('rAppt').textContent = filtered.length;
+  document.getElementById('rTah').textContent = tah.toLocaleString('tr')+' ₺';
+  document.getElementById('rBek').textContent = bek.toLocaleString('tr')+' ₺';
+
+  // Studio breakdown
+  const studios = ['baby','preg','spa','iris'];
+  const studioTotals = {};
+  studios.forEach(s=> studioTotals[s] = filtered.filter(a=>a.studio===s).reduce((sum,a)=>sum+(a.amount||0),0));
+  const maxTotal = Math.max(...Object.values(studioTotals), 1);
+
+  const names = {baby:'Elixir Baby Studio', preg:'Hamile Çekimi', spa:'Elixir Baby Spa', iris:'iris.eskisehir'};
+  const colors = {baby:'var(--baby)', preg:'var(--preg)', spa:'var(--spa)', iris:'var(--iris)'};
+
+  let studioHtml = '';
+  studios.forEach(s=>{
+    const pct = Math.round((studioTotals[s]/maxTotal)*100);
+    studioHtml += `<div class="studio-row">
+      <div class="studio-row-header">
+        <span class="studio-row-name" style="color:${colors[s]}">${names[s]}</span>
+        <span class="studio-row-amount">${studioTotals[s].toLocaleString('tr')} ₺</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${colors[s]}"></div></div>
+    </div>`;
+  });
+  document.getElementById('studioBreakdown').innerHTML = studioHtml;
+
+  const netKar = ciro - getGiderlerTotal();
+  document.getElementById('netKar').textContent = netKar.toLocaleString('tr')+' ₺';
+  document.getElementById('netKar').style.color = netKar>=0?'var(--green)':'var(--red)';
+}
+
+function getGiderlerTotal() {
+  let total = 0;
+  document.querySelectorAll('.cost-amount').forEach(el=>{
+    const v = parseFloat(el.textContent.replace(/[^0-9]/g,''));
+    if(!isNaN(v)) total+=v;
+  });
+  return total;
+}
+
+function addCost() {
+  const name=prompt('Gider adı:'); if(!name) return;
+  const amount=prompt('Tutar (₺):'); if(!amount) return;
+  const list=document.getElementById('costList');
+  const item=document.createElement('div');
+  item.className='cost-item';
+  item.innerHTML=`<span class="cost-name">${name}</span><span class="cost-amount">${parseFloat(amount).toLocaleString('tr')} ₺</span>`;
+  list.appendChild(item);
+  renderReports();
+  showToast('Gider eklendi');
+}
+
+// ─── MODAL HELPERS ───────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+
+document.getElementById('apptDate').addEventListener('change', checkConflict);
+document.getElementById('apptTime').addEventListener('change', checkConflict);
+
+// ─── TOAST ───────────────────────────────
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ─── DATE UTILS ──────────────────────────
+function fmtDate(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function formatDateTR(d) {
+  const days=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+  return days[d.getDay()]+', '+d.getDate()+' '+MONTHS[d.getMonth()];
+}
+
+function formatDateStrTR(str) {
+  const [y,m,d]=str.split('-');
+  return parseInt(d)+' '+MONTHS[parseInt(m)-1]+' '+y;
+}
+</script>
+</body>
+</html>
